@@ -29,6 +29,9 @@ export class ClickUpService {
   private customFieldIds: Map<string, string> = new Map();
   private produtoLabelIds: Map<string, string> = new Map(); // Mapeia nome do produto -> ID do label
   
+  // ID fixo do campo "Produto" (fornecido pelo usuário)
+  private readonly PRODUTO_FIELD_ID = 'b01ec9fe-187c-4e49-8d0e-5f40d24ed3f3';
+  
   // IDs fixos dos labels de produto (fornecidos pelo usuário)
   private readonly produtoLabelIdsFixos: Map<string, string> = new Map([
     // "Ingresso Escala 26" → ID: 000859e0-a3fb-482a-9042-b9eb72e7afec
@@ -93,10 +96,16 @@ export class ClickUpService {
         } else if (nameLower.includes('liquidado')) {
           this.customFieldIds.set('liquidado', field.id);
         } else if (nameLower.includes('produto')) {
-          this.customFieldIds.set('produto', field.id);
-          // Se for campo de label, carregar os labels disponíveis
-          if (field.type === 'labels' || field.type === 'label') {
-            this.carregarLabelsProduto(field.id);
+          // Usar ID fixo do campo "Produto" sempre
+          this.customFieldIds.set('produto', this.PRODUTO_FIELD_ID);
+          // Se o campo encontrado for o correto e for do tipo label, carregar os labels
+          if (field.id === this.PRODUTO_FIELD_ID && (field.type === 'labels' || field.type === 'label')) {
+            this.carregarLabelsProduto(this.PRODUTO_FIELD_ID);
+          } else if (field.id !== this.PRODUTO_FIELD_ID) {
+            // Se encontrou outro campo com nome "produto", apenas logar (não carregar labels do campo errado)
+            this.logger.debug(`ℹ️ Campo "produto" encontrado com ID diferente: ${field.id}. Usando ID fixo: ${this.PRODUTO_FIELD_ID}`);
+            // Carregar labels do campo correto (ID fixo)
+            this.carregarLabelsProduto(this.PRODUTO_FIELD_ID);
           }
         } else if (nameLower.includes('backend_projeto') || nameLower.includes('projeto')) {
           this.customFieldIds.set('backend_projeto', field.id);
@@ -113,8 +122,8 @@ export class ClickUpService {
     if (!this.apiToken) return;
 
     try {
-      // Buscar detalhes do campo para obter os labels disponíveis
-      const response = await fetch(`${this.baseUrl}/field/${fieldId}`, {
+      // Buscar custom fields da lista para obter os labels disponíveis
+      const response = await fetch(`${this.baseUrl}/list/${this.listId}/field`, {
         method: 'GET',
         headers: {
           'Authorization': this.apiToken,
@@ -123,30 +132,43 @@ export class ClickUpService {
       });
 
       if (!response.ok) {
-        this.logger.warn(`⚠️ Erro ao carregar labels do produto: ${response.statusText}`);
+        // Não é crítico, apenas logar como debug (já temos IDs fixos)
+        this.logger.debug(`ℹ️ Não foi possível carregar labels dinamicamente (${fieldId}): ${response.statusText}. Usando IDs fixos.`);
         return;
       }
 
-      const field = await response.json();
+      const data = await response.json();
+      const fields: any[] = data.fields || [];
+      
+      // Encontrar o campo específico pelo ID
+      const produtoField = fields.find((f: any) => f.id === fieldId);
+      
+      if (!produtoField) {
+        this.logger.debug(`ℹ️ Campo de produto (${fieldId}) não encontrado na lista. Usando IDs fixos.`);
+        return;
+      }
       
       // Labels podem estar em type_config.options ou options
-      const options = field.type_config?.options || field.options || [];
+      const options = produtoField.type_config?.options || produtoField.options || [];
       
-      options.forEach((option: any) => {
-        const labelName = option.label || option.name || option.value;
-        const labelId = option.id || option.value;
-        if (labelName && labelId) {
-          // Normalizar nome (lowercase, sem espaços extras)
-          const nomeNormalizado = labelName.toLowerCase().trim();
-          this.produtoLabelIds.set(nomeNormalizado, labelId);
-          // Também salvar o nome original para busca exata
-          this.produtoLabelIds.set(labelName, labelId);
-        }
-      });
+      if (options && options.length > 0) {
+        options.forEach((option: any) => {
+          const labelName = option.label || option.name || option.value;
+          const labelId = option.id || option.value;
+          if (labelName && labelId) {
+            // Normalizar nome (lowercase, sem espaços extras)
+            const nomeNormalizado = labelName.toLowerCase().trim();
+            this.produtoLabelIds.set(nomeNormalizado, labelId);
+            // Também salvar o nome original para busca exata
+            this.produtoLabelIds.set(labelName, labelId);
+          }
+        });
 
-      this.logger.log(`✅ Labels de produto carregados: ${this.produtoLabelIds.size} labels mapeados`);
+        this.logger.debug(`✅ Labels de produto carregados dinamicamente: ${this.produtoLabelIds.size} labels mapeados`);
+      }
     } catch (error) {
-      this.logger.warn(`⚠️ Erro ao carregar labels do produto: ${error.message}`);
+      // Não é crítico, apenas logar como debug (já temos IDs fixos)
+      this.logger.debug(`ℹ️ Erro ao carregar labels do produto: ${error.message}. Usando IDs fixos.`);
     }
   }
 
@@ -154,7 +176,9 @@ export class ClickUpService {
     // 1. Tentar IDs fixos primeiro (mais confiável)
     const nomeNormalizado = nomeProduto.toLowerCase().trim();
     if (this.produtoLabelIdsFixos.has(nomeNormalizado)) {
-      return this.produtoLabelIdsFixos.get(nomeNormalizado) || null;
+      const id = this.produtoLabelIdsFixos.get(nomeNormalizado) || null;
+      this.logger.debug(`✅ ID encontrado nos fixos: "${nomeProduto}" → ${id}`);
+      return id;
     }
     
     // 2. Tentar busca normalizada sem espaços/símbolos (para casos como "ingresso+template-escala-26")
@@ -162,27 +186,36 @@ export class ClickUpService {
     for (const [key, id] of this.produtoLabelIdsFixos.entries()) {
       const keySemEspacos = key.replace(/[+\s-]/g, '');
       if (keySemEspacos === nomeSemEspacos) {
+        this.logger.debug(`✅ ID encontrado nos fixos (normalizado): "${nomeProduto}" → ${id}`);
         return id;
       }
     }
     
     // 3. Tentar busca nos labels carregados dinamicamente
     if (this.produtoLabelIds.has(nomeProduto)) {
-      return this.produtoLabelIds.get(nomeProduto) || null;
+      const id = this.produtoLabelIds.get(nomeProduto) || null;
+      this.logger.debug(`✅ ID encontrado nos dinâmicos: "${nomeProduto}" → ${id}`);
+      return id;
     }
     
     if (this.produtoLabelIds.has(nomeNormalizado)) {
-      return this.produtoLabelIds.get(nomeNormalizado) || null;
+      const id = this.produtoLabelIds.get(nomeNormalizado) || null;
+      this.logger.debug(`✅ ID encontrado nos dinâmicos (normalizado): "${nomeProduto}" → ${id}`);
+      return id;
     }
     
     // 4. Tentar busca parcial nos labels carregados
     for (const [key, id] of this.produtoLabelIds.entries()) {
       const keyNormalizado = key.toLowerCase().replace(/[+\s-]/g, '');
       if (keyNormalizado === nomeSemEspacos) {
+        this.logger.debug(`✅ ID encontrado nos dinâmicos (parcial): "${nomeProduto}" → ${id}`);
         return id;
       }
     }
     
+    this.logger.warn(`⚠️ ID do label não encontrado para: "${nomeProduto}"`);
+    this.logger.debug(`   IDs fixos disponíveis: ${Array.from(this.produtoLabelIdsFixos.keys()).join(', ')}`);
+    this.logger.debug(`   IDs dinâmicos disponíveis: ${Array.from(this.produtoLabelIds.keys()).join(', ')}`);
     return null;
   }
 
@@ -201,9 +234,33 @@ export class ClickUpService {
         return null;
       }
 
-      // Buscar tasks na lista (limitado a 100 para performance)
+      // Construir filtros de custom fields (apenas email e projeto, produto não importa)
+      const customFieldsFilter: any[] = [
+        {
+          field_id: emailFieldId,
+          operator: '=',
+          value: email,
+        },
+      ];
+
+      // Se tem projeto e campo de projeto, adicionar filtro
+      if (projeto && projetoFieldId) {
+        customFieldsFilter.push({
+          field_id: projetoFieldId,
+          operator: '=',
+          value: projeto,
+        });
+      }
+
+      this.logger.debug(`🔍 Buscando task por email: ${email}, projeto: ${projeto || 'N/A'}`);
+      this.logger.debug(`   Filtros: ${JSON.stringify(customFieldsFilter)}`);
+
+      // Codificar filtros para URL
+      const filtersEncoded = encodeURIComponent(JSON.stringify(customFieldsFilter));
+
+      // Buscar tasks usando filtros de custom fields (incluindo tarefas fechadas)
       const response = await fetch(
-        `${this.baseUrl}/list/${this.listId}/task?archived=false&page=0&order_by=created&reverse=true&subtasks=true&statuses[]=`,
+        `${this.baseUrl}/list/${this.listId}/task?archived=false&include_closed=true&custom_fields=${filtersEncoded}`,
         {
           method: 'GET',
           headers: {
@@ -214,25 +271,24 @@ export class ClickUpService {
       );
 
       if (!response.ok) {
-        this.logger.warn(`⚠️ Erro ao buscar tasks: ${response.statusText}`);
+        const errorText = await response.text();
+        this.logger.warn(`⚠️ Erro ao buscar tasks: ${response.statusText} - ${errorText}`);
         return null;
       }
 
       const data = await response.json();
       const tasks: any[] = data.tasks || [];
 
-      // Buscar task que tenha o mesmo email e projeto
-      for (const task of tasks) {
-        // Buscar detalhes completos da task para obter custom fields
-        const taskDetails = await this.buscarTaskDetalhes(task.id);
-        if (!taskDetails) continue;
+      if (tasks.length === 0) {
+        this.logger.debug(`🔍 Nenhuma task encontrada para email: ${email}, projeto: ${projeto}`);
+        return null;
+      }
 
-        const taskEmail = this.extrairValorCustomField(taskDetails, emailFieldId);
-        const taskProjeto = projetoFieldId
-          ? this.extrairValorCustomField(taskDetails, projetoFieldId)
-          : null;
-
-        if (taskEmail === email && (!projeto || !taskProjeto || taskProjeto === projeto)) {
+      // Se encontrou tasks, buscar detalhes da primeira (deve ser a única com esses filtros)
+      if (tasks.length > 0) {
+        const taskDetails = await this.buscarTaskDetalhes(tasks[0].id);
+        if (taskDetails) {
+          this.logger.debug(`✅ Task existente encontrada: ${tasks[0].id}`);
           return taskDetails;
         }
       }
@@ -323,6 +379,12 @@ export class ClickUpService {
       if (this.customFieldIds.size === 0) {
         await this.carregarCustomFields();
       }
+      
+      // Garantir que o campo "produto" está usando o ID correto
+      if (!this.customFieldIds.get('produto') || this.customFieldIds.get('produto') !== this.PRODUTO_FIELD_ID) {
+        this.logger.log(`🔧 Forçando uso do ID fixo do campo "Produto": ${this.PRODUTO_FIELD_ID}`);
+        this.customFieldIds.set('produto', this.PRODUTO_FIELD_ID);
+      }
 
       // Se tem projeto, buscar task existente
       if (dados.projeto) {
@@ -404,18 +466,37 @@ export class ClickUpService {
         });
       }
 
-      // Produto (campo de label - precisa ser array de objetos)
-      const produtoFieldId = this.customFieldIds.get('produto');
+      // Produto (campo de label - usar ID fixo)
+      const produtoFieldId = this.PRODUTO_FIELD_ID; // Sempre usar o ID fixo correto
       if (produtoFieldId) {
         const labelId = this.obterIdLabelProduto(dados.produto);
-        const produtoValue = labelId
-          ? [{ id: labelId }] // Se encontrou ID, usar ID
-          : [{ name: dados.produto }]; // Se não encontrou, usar nome (ClickUp criará/selecionará)
+        this.logger.debug(`🔍 Produto: "${dados.produto}" → Label ID: ${labelId || 'NÃO ENCONTRADO'}`);
         
-        customFields.push({
-          id: produtoFieldId,
-          value: produtoValue,
-        });
+        if (!labelId) {
+          this.logger.warn(`⚠️ ID do label não encontrado para produto: "${dados.produto}"`);
+          this.logger.warn(`   Tentando usar nome do label...`);
+        }
+        
+        // ClickUp: value deve ser array de strings (IDs das opções)
+        // Formato: { "id": "field-id", "value": ["option-id"] }
+        const produtoValue = labelId
+          ? [labelId] // Array de strings com o ID da opção
+          : null; // Se não encontrou ID, não enviar (ou criar label primeiro)
+        
+        if (produtoValue) {
+          this.logger.debug(`📦 Valor do produto sendo enviado: ${JSON.stringify(produtoValue)}`);
+          this.logger.debug(`   Campo ID: ${produtoFieldId}`);
+          this.logger.debug(`   Label ID: ${labelId}`);
+          
+          customFields.push({
+            id: produtoFieldId,
+            value: produtoValue, // Array de strings: ["id-da-opcao"]
+          });
+        } else {
+          this.logger.warn(`⚠️ Não foi possível definir produto: ID do label não encontrado para "${dados.produto}"`);
+        }
+      } else {
+        this.logger.warn(`⚠️ Campo "produto" não encontrado nos custom fields`);
       }
 
       // Backend Projeto
@@ -427,16 +508,10 @@ export class ClickUpService {
         });
       }
 
-      // Atualizar task
-      // Tags devem ser um array de strings (nomes das tags)
+      // Atualizar task (sem tags no body, vamos adicionar individualmente)
       const updateData: any = {
         name: dados.nome_lead,
       };
-
-      // Adicionar tags apenas se houver tags para adicionar
-      if (tagsMerged.length > 0) {
-        updateData.tags = tagsMerged;
-      }
 
       if (customFields.length > 0) {
         updateData.custom_fields = customFields;
@@ -453,7 +528,22 @@ export class ClickUpService {
 
       if (!response.ok) {
         const errorText = await response.text();
+        let errorDetails = '';
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorDetails = `\n   Código: ${errorJson.ECODE || 'N/A'}\n   Mensagem: ${errorJson.err || errorText}\n   Dados enviados: ${JSON.stringify(updateData, null, 2)}`;
+        } catch {
+          errorDetails = `\n   Resposta: ${errorText}\n   Dados enviados: ${JSON.stringify(updateData, null, 2)}`;
+        }
+        this.logger.error(`❌ Erro ao atualizar task no ClickUp:`);
+        this.logger.error(`   Status: ${response.status} ${response.statusText}`);
+        this.logger.error(`   Detalhes: ${errorDetails}`);
         throw new Error(`ClickUp API error: ${response.status} - ${errorText}`);
+      }
+
+      // Adicionar tags individualmente usando o endpoint específico
+      if (tagsMerged.length > 0) {
+        await this.adicionarTagsATask(task.id, tagsMerged, tagsExistentes);
       }
 
       this.logger.log(`✅ Task atualizada no ClickUp com ID: ${task.id}`);
@@ -506,18 +596,38 @@ export class ClickUpService {
         });
       }
 
-      const produtoFieldId = this.customFieldIds.get('produto');
+      // Produto (campo de label - usar ID fixo)
+      const produtoFieldId = this.PRODUTO_FIELD_ID; // Sempre usar o ID fixo correto
       if (produtoFieldId) {
-        // Produto é campo de label - precisa ser array de objetos
+        // Produto é campo de label - precisa ser array de IDs ou objetos
         const labelId = this.obterIdLabelProduto(dados.produto);
-        const produtoValue = labelId
-          ? [{ id: labelId }] // Se encontrou ID, usar ID
-          : [{ name: dados.produto }]; // Se não encontrou, usar nome (ClickUp criará/selecionará)
+        this.logger.debug(`🔍 Produto: "${dados.produto}" → Label ID: ${labelId || 'NÃO ENCONTRADO'}`);
         
-        customFields.push({
-          id: produtoFieldId,
-          value: produtoValue,
-        });
+        if (!labelId) {
+          this.logger.warn(`⚠️ ID do label não encontrado para produto: "${dados.produto}"`);
+          this.logger.warn(`   Tentando usar nome do label...`);
+        }
+        
+        // ClickUp: value deve ser array de strings (IDs das opções)
+        // Formato: { "id": "field-id", "value": ["option-id"] }
+        const produtoValue = labelId
+          ? [labelId] // Array de strings com o ID da opção
+          : null; // Se não encontrou ID, não enviar (ou criar label primeiro)
+        
+        if (produtoValue) {
+          this.logger.debug(`📦 Valor do produto sendo enviado: ${JSON.stringify(produtoValue)}`);
+          this.logger.debug(`   Campo ID: ${produtoFieldId}`);
+          this.logger.debug(`   Label ID: ${labelId}`);
+          
+          customFields.push({
+            id: produtoFieldId,
+            value: produtoValue, // Array de strings: ["id-da-opcao"]
+          });
+        } else {
+          this.logger.warn(`⚠️ Não foi possível definir produto: ID do label não encontrado para "${dados.produto}"`);
+        }
+      } else {
+        this.logger.warn(`⚠️ Campo "produto" não encontrado nos custom fields`);
       }
 
       const projetoFieldId = this.customFieldIds.get('backend_projeto');
@@ -532,11 +642,7 @@ export class ClickUpService {
         name: dados.nome_lead,
       };
 
-      // Adicionar tags apenas se houver ações
-      if (dados.acao_tomada && dados.acao_tomada.length > 0) {
-        taskData.tags = dados.acao_tomada;
-      }
-
+      // Não adicionar tags no body da criação, vamos adicionar depois
       if (customFields.length > 0) {
         taskData.custom_fields = customFields;
       }
@@ -552,14 +658,96 @@ export class ClickUpService {
 
       if (!response.ok) {
         const errorText = await response.text();
+        let errorDetails = '';
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorDetails = `\n   Código: ${errorJson.ECODE || 'N/A'}\n   Mensagem: ${errorJson.err || errorText}`;
+          if (errorJson.ECODE === 'FIELD_158' || errorJson.err?.includes('option id')) {
+            errorDetails += `\n   ⚠️ Campo de produto com ID inválido!`;
+            errorDetails += `\n   Produto recebido: "${dados.produto}"`;
+            errorDetails += `\n   ID do label encontrado: ${this.obterIdLabelProduto(dados.produto) || 'NÃO ENCONTRADO'}`;
+            errorDetails += `\n   Custom field ID do produto: ${this.customFieldIds.get('produto') || 'NÃO ENCONTRADO'}`;
+          }
+          errorDetails += `\n   Dados enviados: ${JSON.stringify(taskData, null, 2)}`;
+        } catch {
+          errorDetails = `\n   Resposta: ${errorText}\n   Dados enviados: ${JSON.stringify(taskData, null, 2)}`;
+        }
+        this.logger.error(`❌ Erro ao criar task no ClickUp:`);
+        this.logger.error(`   Status: ${response.status} ${response.statusText}`);
+        this.logger.error(`   Detalhes: ${errorDetails}`);
         throw new Error(`ClickUp API error: ${response.status} - ${errorText}`);
       }
 
       const result = await response.json();
-      this.logger.log(`✅ Nova task criada no ClickUp com ID: ${result.id}`);
+      const taskId = result.id;
+      
+      // Adicionar tags individualmente após criar a task
+      if (dados.acao_tomada && dados.acao_tomada.length > 0) {
+        await this.adicionarTagsATask(taskId, dados.acao_tomada, []);
+      }
+      
+      this.logger.log(`✅ Nova task criada no ClickUp com ID: ${taskId}`);
     } catch (error) {
       this.logger.error(`❌ Erro ao criar task no ClickUp: ${error.message}`);
       throw error;
+    }
+  }
+
+  private async adicionarTagsATask(
+    taskId: string,
+    tagsParaAdicionar: string[],
+    tagsExistentes: string[],
+  ): Promise<void> {
+    if (!this.apiToken || !taskId || tagsParaAdicionar.length === 0) return;
+
+    try {
+      // Filtrar apenas tags que ainda não existem
+      const tagsNovas = tagsParaAdicionar.filter(
+        (tag) => !tagsExistentes.includes(tag),
+      );
+
+      if (tagsNovas.length === 0) {
+        this.logger.debug(`ℹ️ Todas as tags já existem na task ${taskId}`);
+        return;
+      }
+
+      this.logger.debug(`🏷️ Adicionando ${tagsNovas.length} tags à task ${taskId}: [${tagsNovas.join(', ')}]`);
+
+      // Adicionar cada tag individualmente usando o endpoint POST /task/{task_id}/tag/{tag_name}
+      for (const tag of tagsNovas) {
+        try {
+          // Codificar o nome da tag para URL (pode conter caracteres especiais)
+          const tagEncoded = encodeURIComponent(tag);
+          
+          const response = await fetch(
+            `${this.baseUrl}/task/${taskId}/tag/${tagEncoded}`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': this.apiToken,
+                'Content-Type': 'application/json',
+              },
+            },
+          );
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            // Se a tag já existe, não é um erro crítico
+            if (response.status === 400 && errorText.includes('already')) {
+              this.logger.debug(`ℹ️ Tag "${tag}" já existe na task ${taskId}`);
+            } else {
+              this.logger.warn(`⚠️ Erro ao adicionar tag "${tag}" à task ${taskId}: ${response.statusText} - ${errorText}`);
+            }
+          } else {
+            this.logger.debug(`✅ Tag "${tag}" adicionada à task ${taskId}`);
+          }
+        } catch (error) {
+          this.logger.warn(`⚠️ Erro ao adicionar tag "${tag}": ${error.message}`);
+        }
+      }
+    } catch (error) {
+      this.logger.error(`❌ Erro ao adicionar tags à task: ${error.message}`);
+      // Não interrompe o fluxo, apenas loga o erro
     }
   }
 }

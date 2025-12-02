@@ -27,6 +27,7 @@ FROM base AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV PORT=3010
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nestjs
@@ -39,8 +40,6 @@ COPY --from=builder /app/package.json ./package.json
 USER nestjs
 
 EXPOSE 3010
-
-ENV PORT=3010
 
 CMD ["node", "dist/main.js"]
 

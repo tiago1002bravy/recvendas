@@ -7,12 +7,14 @@ Automação de recuperação de vendas com integração Supabase e ClickUp.
 ### Configuração no Coolify
 
 1. **Branch**: `main`
-2. **Base Directory**: `/` (raiz do repositório)
+2. **Base Directory**: `/` ou deixar **VAZIO** (raiz do repositório)
+   - ⚠️ **IMPORTANTE**: Se o Dockerfile não for encontrado, verifique se o Base Directory está como `/` ou vazio
 3. **Port**: `3010` (porta padrão da aplicação)
 4. **Is it a static site?**: ❌ **NÃO** (é uma API NestJS)
 5. **Build Pack**: 
    - ✅ **Nixpacks** (recomendado - usa `nixpacks.toml`)
    - Ou **Dockerfile** (usa o Dockerfile fornecido)
+   - ⚠️ Se usar Dockerfile e der erro "no such file or directory", tente usar **Nixpacks** primeiro
 
 ### Variáveis de Ambiente
 

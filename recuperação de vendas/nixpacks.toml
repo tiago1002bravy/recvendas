@@ -10,3 +10,7 @@ cmds = ["yarn build"]
 [start]
 cmd = "node dist/main.js"
 
+[variables]
+PORT = "3010"
+NODE_ENV = "production"
+

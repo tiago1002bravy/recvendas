@@ -509,44 +509,68 @@ export class ClickUpService {
       }
 
       // Atualizar task (sem tags no body, vamos adicionar individualmente)
-      const updateData: any = {
-        name: dados.nome_lead,
-      };
+      // NUNCA editar o nome da tarefa - manter o nome existente
+      const updateData: any = {};
+
+      // Só atualizar nome se:
+      // 1. O nome atual da task está vazio E
+      // 2. O novo nome não está vazio
+      const nomeAtual = task.name || '';
+      const novoNome = dados.nome_lead || '';
+      
+      if (!nomeAtual.trim() && novoNome.trim()) {
+        // Só atualizar se o nome atual está vazio e temos um nome válido
+        updateData.name = novoNome;
+        this.logger.debug(`📝 Atualizando nome da task (estava vazio): "${novoNome}"`);
+      } else if (nomeAtual.trim() && !novoNome.trim()) {
+        // Se o nome atual existe mas o novo está vazio, NÃO atualizar
+        this.logger.debug(`⚠️ Nome da task não será atualizado (novo nome está vazio, mantendo: "${nomeAtual}")`);
+      } else if (nomeAtual.trim() && novoNome.trim() && nomeAtual !== novoNome) {
+        // Se ambos existem mas são diferentes, NÃO atualizar (manter o existente)
+        this.logger.debug(`⚠️ Nome da task não será atualizado (mantendo nome existente: "${nomeAtual}")`);
+      }
+      // Se ambos estão vazios ou são iguais, não fazer nada
 
       if (customFields.length > 0) {
         updateData.custom_fields = customFields;
       }
 
-      const response = await fetch(`${this.baseUrl}/task/${task.id}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': this.apiToken,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updateData),
-      });
+      // Se não há nada para atualizar (nem nome nem custom fields), pular a atualização
+      if (Object.keys(updateData).length === 0) {
+        this.logger.debug(`ℹ️ Nada para atualizar na task ${task.id} (nome preservado, sem custom fields novos)`);
+        // Ainda precisamos adicionar as tags, então continuar
+      } else {
+        const response = await fetch(`${this.baseUrl}/task/${task.id}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': this.apiToken,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(updateData),
+        });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorDetails = '';
-        try {
-          const errorJson = JSON.parse(errorText);
-          errorDetails = `\n   Código: ${errorJson.ECODE || 'N/A'}\n   Mensagem: ${errorJson.err || errorText}\n   Dados enviados: ${JSON.stringify(updateData, null, 2)}`;
-        } catch {
-          errorDetails = `\n   Resposta: ${errorText}\n   Dados enviados: ${JSON.stringify(updateData, null, 2)}`;
+        if (!response.ok) {
+          const errorText = await response.text();
+          let errorDetails = '';
+          try {
+            const errorJson = JSON.parse(errorText);
+            errorDetails = `\n   Código: ${errorJson.ECODE || 'N/A'}\n   Mensagem: ${errorJson.err || errorText}\n   Dados enviados: ${JSON.stringify(updateData, null, 2)}`;
+          } catch {
+            errorDetails = `\n   Resposta: ${errorText}\n   Dados enviados: ${JSON.stringify(updateData, null, 2)}`;
+          }
+          this.logger.error(`❌ Erro ao atualizar task no ClickUp:`);
+          this.logger.error(`   Status: ${response.status} ${response.statusText}`);
+          this.logger.error(`   Detalhes: ${errorDetails}`);
+          throw new Error(`ClickUp API error: ${response.status} - ${errorText}`);
         }
-        this.logger.error(`❌ Erro ao atualizar task no ClickUp:`);
-        this.logger.error(`   Status: ${response.status} ${response.statusText}`);
-        this.logger.error(`   Detalhes: ${errorDetails}`);
-        throw new Error(`ClickUp API error: ${response.status} - ${errorText}`);
+
+        this.logger.log(`✅ Task atualizada no ClickUp com ID: ${task.id}`);
       }
 
       // Adicionar tags individualmente usando o endpoint específico
       if (tagsMerged.length > 0) {
         await this.adicionarTagsATask(task.id, tagsMerged, tagsExistentes);
       }
-
-      this.logger.log(`✅ Task atualizada no ClickUp com ID: ${task.id}`);
     } catch (error) {
       this.logger.error(`❌ Erro ao atualizar task no ClickUp: ${error.message}`);
       throw error;
@@ -638,8 +662,14 @@ export class ClickUpService {
         });
       }
 
+      // Garantir que o nome não está vazio ao criar
+      const nomeTask = (dados.nome_lead || '').trim();
+      if (!nomeTask) {
+        this.logger.warn(`⚠️ Nome do lead está vazio! Usando email como fallback: ${dados.email_lead}`);
+      }
+
       const taskData: any = {
-        name: dados.nome_lead,
+        name: nomeTask || dados.email_lead || 'Lead sem nome', // Fallback para evitar nome vazio
       };
 
       // Não adicionar tags no body da criação, vamos adicionar depois

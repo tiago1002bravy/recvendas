@@ -19,5 +19,14 @@
     "noFallthroughCasesInSwitch": false
   },
   "include": ["src/**/*.ts", "api/**/*.ts"],
-  "exclude": ["node_modules", "dist", "scripts", "projetos-vibecoding", "**/*spec.ts"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "scripts",
+    "projetos-vibecoding/**",
+    "**/projetos-vibecoding/**",
+    "**/*spec.ts",
+    "test",
+    "**/*.spec.ts"
+  ]
 }

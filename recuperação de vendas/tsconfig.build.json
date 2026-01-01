@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "exclude": [
+    "node_modules",
+    "dist",
+    "scripts",
+    "projetos-vibecoding",
+    "**/*spec.ts",
+    "test",
+    "**/*.spec.ts"
+  ],
+  "include": ["src/**/*.ts", "api/**/*.ts"]
+}
+

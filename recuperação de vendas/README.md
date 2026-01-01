@@ -2,6 +2,53 @@
 
 Automação de recuperação de vendas com integração Supabase e ClickUp.
 
+## 🚀 Deploy na Vercel
+
+### Configuração na Vercel
+
+1. **Framework Preset**: Outro (não é Next.js)
+2. **Root Directory**: `/` (raiz do repositório)
+3. **Build Command**: `yarn build`
+4. **Output Directory**: Deixe vazio (não é um site estático)
+5. **Install Command**: `yarn install`
+
+### Variáveis de Ambiente
+
+Configure as seguintes variáveis de ambiente na Vercel:
+
+```env
+# Supabase
+SUPABASE_URL=https://seu-projeto.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=sua_service_role_key
+
+# ClickUp (opcional - se não configurar, a integração será desabilitada)
+CLICKUP_API_TOKEN=seu_token_clickup
+
+# Node Environment
+NODE_ENV=production
+```
+
+### Endpoints na Vercel
+
+- **Webhook com projeto**: `POST https://seu-projeto.vercel.app/webhook/:projeto`
+- **Webhook sem projeto**: `POST https://seu-projeto.vercel.app/webhook`
+
+### Deploy via CLI
+
+```bash
+# Instalar Vercel CLI
+npm i -g vercel
+
+# Fazer login
+vercel login
+
+# Deploy
+vercel
+
+# Deploy em produção
+vercel --prod
+```
+
 ## 🚀 Deploy no Coolify
 
 ### Configuração no Coolify

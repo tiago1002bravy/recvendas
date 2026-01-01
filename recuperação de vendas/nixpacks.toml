@@ -1,9 +1,0 @@
-[phases.install]
-cmds = ["yarn install --frozen-lockfile"]
-
-[phases.build]
-cmds = ["yarn build"]
-
-[start]
-cmd = "node dist/main.js"
-

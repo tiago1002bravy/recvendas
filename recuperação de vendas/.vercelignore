@@ -5,3 +5,6 @@ coverage
 dist
 .vscode
 .idea
+projetos-vibecoding/
+**/*dashboard-aula*
+*.local

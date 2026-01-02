@@ -42,3 +42,7 @@ lerna-debug.log*
 # Vercel
 .vercel
 
+# External projects
+projetos-vibecoding/
+**/*dashboard-aula*
+

@@ -15,12 +15,8 @@ export class WebhookController {
   }
 
   @Post(':projeto')
-  async webhookComProjeto(
-    @Param('projeto') projeto: string,
-    @Body() dados: WebhookDto,
-  ) {
+  async webhookComProjeto(@Param('projeto') projeto: string, @Body() dados: WebhookDto) {
     this.logger.log(`📥 Webhook recebido para o projeto: ${projeto}`);
     return this.webhookService.processarDados(dados, projeto);
   }
 }
-

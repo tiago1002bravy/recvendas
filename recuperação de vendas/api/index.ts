@@ -28,4 +28,3 @@ export default async function handler(req: express.Request, res: express.Respons
   const app = await createApp();
   return app(req, res);
 }
-

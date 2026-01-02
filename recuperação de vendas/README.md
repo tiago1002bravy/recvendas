@@ -1,110 +1,60 @@
-# Recuperação de Vendas
+# Sistema de Recuperação de Vendas
 
-Automação de recuperação de vendas com integração Supabase e ClickUp.
+API NestJS para processar webhooks de plataformas de vendas e salvar dados no Supabase e ClickUp.
 
-## 🚀 Deploy na Vercel
+## 🚀 Início Rápido
 
-### Configuração na Vercel
+### Pré-requisitos
 
-1. **Framework Preset**: Outro (não é Next.js)
-2. **Root Directory**: `/` (raiz do repositório)
-3. **Build Command**: `yarn build`
-4. **Output Directory**: Deixe vazio (não é um site estático)
-5. **Install Command**: `yarn install`
+- Node.js 18+
+- Yarn instalado
+- Conta Supabase
+- Conta ClickUp (opcional)
 
-### Variáveis de Ambiente
-
-Configure as seguintes variáveis de ambiente na Vercel:
-
-```env
-# Supabase
-SUPABASE_URL=https://seu-projeto.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=sua_service_role_key
-
-# ClickUp (opcional - se não configurar, a integração será desabilitada)
-CLICKUP_API_TOKEN=seu_token_clickup
-
-# Node Environment
-NODE_ENV=production
-```
-
-### Endpoints na Vercel
-
-- **Webhook com projeto**: `POST https://seu-projeto.vercel.app/webhook/:projeto`
-- **Webhook sem projeto**: `POST https://seu-projeto.vercel.app/webhook`
-
-### Deploy via CLI
-
-```bash
-# Instalar Vercel CLI
-npm i -g vercel
-
-# Fazer login
-vercel login
-
-# Deploy
-vercel
-
-# Deploy em produção
-vercel --prod
-```
-
-## 🚀 Deploy no Coolify
-
-### Configuração no Coolify
-
-1. **Branch**: `main`
-2. **Base Directory**: `/` (raiz do repositório)
-3. **Port**: `3010` (porta padrão da aplicação)
-4. **Is it a static site?**: ❌ **NÃO** (é uma API NestJS)
-5. **Build Pack**: 
-   - ✅ **Nixpacks** (recomendado - usa `nixpacks.toml`)
-   - Ou **Dockerfile** (usa o Dockerfile fornecido)
-
-### Variáveis de Ambiente
-
-Configure as seguintes variáveis de ambiente no Coolify:
-
-```env
-# Supabase
-SUPABASE_URL=https://seu-projeto.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=sua_service_role_key
-
-# ClickUp (opcional - se não configurar, a integração será desabilitada)
-CLICKUP_TOKEN=seu_token_clickup
-# ou
-CLICKUP_API_TOKEN=seu_token_clickup
-
-# Porta (opcional - padrão: 3010)
-PORT=3010
-```
-
-### Endpoints
-
-- **Webhook**: `POST /webhook/:projeto`
-- **Webhook (sem projeto)**: `POST /webhook`
-- **Health Check**: A aplicação responde na porta configurada
-
-## 📦 Desenvolvimento Local
+### Instalação
 
 ```bash
 # Instalar dependências
 yarn install
 
-# Rodar em desenvolvimento
+# Configurar variáveis de ambiente
+cp .env.example .env
+# Editar .env com suas credenciais
+```
+
+### Executar
+
+```bash
+# Desenvolvimento
 yarn dev
 
-# Build
+# Produção
 yarn build
-
-# Rodar em produção
 yarn start:prod
 ```
 
-## 🔧 Tecnologias
+## 📚 Documentação
 
-- NestJS
-- Supabase
-- ClickUp API
-- TypeScript
+Consulte `DOCUMENTACAO_APIS.md` para documentação completa das APIs, endpoints, integrações e exemplos.
 
+## 🔧 Variáveis de Ambiente
+
+```env
+SUPABASE_URL=https://xxx.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+CLICKUP_API_TOKEN=pk_xxx
+PORT=3010
+```
+
+## 📡 Endpoints
+
+- `POST /webhook` - Recebe webhook sem projeto
+- `POST /webhook/:projeto` - Recebe webhook com projeto específico
+
+## 🚢 Deploy na Vercel
+
+O projeto está configurado para deploy na Vercel. Basta fazer push para o repositório e conectar na Vercel.
+
+## 📝 Licença
+
+MIT

@@ -3,7 +3,7 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  
+
   // Sem ValidationPipe - aceita qualquer formato de dados sem validação
   app.enableCors();
 

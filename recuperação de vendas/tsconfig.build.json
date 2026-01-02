@@ -32,14 +32,6 @@
     "test",
     "dist",
     "coverage",
-    "**/*spec.ts",
-    "../**",
-    "../../**",
-    "**/../**",
-    "**/../../**",
-    "**/*projetos-vibecoding*",
-    "**/*dashboard-aula*",
-    "../dashboard-aula/**",
-    "../projetos-vibecoding/**"
+    "**/*spec.ts"
   ]
 }

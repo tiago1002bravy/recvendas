@@ -195,7 +195,7 @@ export class WebhookService {
     );
 
     const utmsRaw = this.extrairValor(dadosFinais, 'utms|content.utms');
-    let utms = null;
+    let utms: { utm_source?: string; utm_medium?: string; utm_campaign?: string; utm_term?: string; utm_content?: string } | undefined = undefined;
     if (utmsRaw && typeof utmsRaw === 'object') {
       utms = {
         utm_source: this.limparString(utmsRaw.utm_source || ''),
@@ -285,8 +285,8 @@ export class WebhookService {
       whatsappLead: this.normalizarWhatsApp(dadosFinais),
       id: dadosFinais.id || this.extrairValor(dadosFinais, 'sale.id|body.sale.id|client.id|body.client.id'),
       created: dadosFinais.created || this.extrairValor(dadosFinais, 'sale.created_at|body.sale.created_at|client.created_at|body.client.created_at'),
-      from: dadosFinais.from || null,
-      utms: utms,
+      from: dadosFinais.from || undefined,
+      utms: utms || undefined,
       projeto: this.limparString(projetoFinal),
       dadosOriginais: dadosProcessados,
     };
@@ -326,12 +326,12 @@ export class WebhookService {
       produto: dados.produto,
       email_lead: dados.emailLead,
       whatsapp_lead: dados.whatsappLead,
-      id_original: dados.id ? String(dados.id) : null,
-      created_original: dados.created || null,
-      from_original: dados.from || null,
-      utms: dados.utms || null,
-      projeto: dados.projeto || null,
-      dados_originais: dados.dadosOriginais || null,
+      id_original: dados.id ? String(dados.id) : undefined,
+      created_original: dados.created || undefined,
+      from_original: dados.from || undefined,
+      utms: dados.utms || undefined,
+      projeto: dados.projeto || undefined,
+      dados_originais: dados.dadosOriginais || undefined,
     };
 
     await this.supabaseService.salvarRecuperacaoVenda(dadosParaBanco);
@@ -346,7 +346,7 @@ export class WebhookService {
       produto: dados.produto,
       email_lead: dados.emailLead,
       whatsapp_lead: dados.whatsappLead,
-      projeto: dados.projeto || null,
+      projeto: dados.projeto || undefined,
     };
 
     await this.clickUpService.salvarRecuperacaoVenda(dadosParaClickUp);

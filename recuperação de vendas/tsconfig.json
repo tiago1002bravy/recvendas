@@ -19,7 +19,9 @@
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true,
     "esModuleInterop": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "typeRoots": ["./node_modules/@types"],
+    "paths": {}
   },
   "include": [
     "src/**/*.ts",
@@ -31,9 +33,13 @@
     "coverage",
     "test",
     "**/*.spec.ts",
-    "**/../**",
     "../**",
+    "../../**",
+    "**/../**",
+    "**/../../**",
     "**/projetos-vibecoding/**",
-    "**/dashboard-aula/**"
+    "**/dashboard-aula/**",
+    "../dashboard-aula/**",
+    "../projetos-vibecoding/**"
   ]
 }
